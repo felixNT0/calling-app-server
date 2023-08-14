@@ -76,10 +76,32 @@ const deleteMeeting = asyncHandler(async (req, res) => {
   }
 });
 
+const generateAgoraToken = asyncHandler(async (req, res) => {
+  const userId = 0;
+  const channelName = req.body.channelName;
+
+  const agoraAppId = process.env.AGORA_APP_ID || "";
+  const agoraAppCertificate = process.env.AGORA_APP_CERTIFICATE || "";
+
+  const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + 86400;
+
+  const token = agora.RtcTokenBuilder.buildTokenWithUid(
+    agoraAppId,
+    agoraAppCertificate,
+    channelName,
+    userId,
+    agora.RtcRole.PUBLISHER,
+    expirationTimeInSeconds
+  );
+
+  res.json({ token });
+});
+
 module.exports = {
   deleteMeeting,
   editMeeting,
   createMeeting,
   getMeetingId,
   getAllMeetings,
+  generateAgoraToken,
 };
