@@ -3,11 +3,12 @@ const agora = require("agora-access-token");
 const cors = require("cors");
 const { config } = require("dotenv");
 const router = require("./src/routes/routes");
-
+const bodyParser = require("body-parser");
 config();
 
 const app = express();
 app.use(express.json());
+app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 // app.use(cors());
 const allowedOrigins = [
