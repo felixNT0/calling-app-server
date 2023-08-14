@@ -1,5 +1,4 @@
 const express = require("express");
-const agora = require("agora-access-token");
 const cors = require("cors");
 const { config } = require("dotenv");
 const router = require("./src/routes/routes");
