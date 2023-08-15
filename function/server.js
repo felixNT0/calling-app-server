@@ -3,6 +3,7 @@ const cors = require("cors");
 const { config } = require("dotenv");
 const router = require("../src/routes/routes");
 const bodyParser = require("body-parser");
+const serverless = require("serverless-http");
 
 config();
 
