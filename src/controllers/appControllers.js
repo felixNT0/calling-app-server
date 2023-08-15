@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const admin = require("firebase-admin");
 const agora = require("agora-access-token");
+const moment = require("moment");
 
 const serviceAccount = require("../../firesbaseConfig.json");
 admin.initializeApp({
@@ -18,26 +19,41 @@ const getAllMeetings = asyncHandler(async (req, res) => {
       id: doc.id,
       ...doc.data(),
     }));
-    res.json(items || []);
+
+    const parsedMeetingData = items.map((item) => ({
+      ...item,
+      date: moment(item.date), // Assuming 'date' is the property containing the date string
+    }));
+    // Sort the parsed data based on the 'date' property
+    const sortedMeetingData = parsedMeetingData.sort((a, b) => b.date - a.date);
+    return res.json(sortedMeetingData || []);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
 const getMeetingId = asyncHandler(async (req, res) => {
   try {
-    if (!req.params.id) return;
-    const docRef = db.collection("meeting").doc(req.params.id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      res.status(404).json({ error: "Item not found" });
-    } else {
-      res.json({ id: doc.id, ...doc.data() });
+    if (!req.params.id) return; // Ensure the ID is provided
+
+    // const docRef = db.collection("meeting").doc(req.params.id);
+    // const doc = await docRef.get();
+
+    const snapshot = await db.collection("meeting").get();
+    const items = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    const data = items.find((item) => item.id === req.params.id);
+    if (!data) {
+      return res.status(404).json({ error: "Item not found" });
     }
+
+    return res.json(data);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
@@ -45,23 +61,31 @@ const createMeeting = asyncHandler(async (req, res) => {
   try {
     const newItem = req.body;
     const docRef = await db.collection("meeting").add(newItem);
-    res.json({ id: docRef.id, ...newItem });
+    return res.json({ id: docRef.id, ...newItem });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
 const editMeeting = asyncHandler(async (req, res) => {
   try {
-    if (!req.params.id) return;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
     const updatedItem = req.body;
-    const docRef = db.collection("meeting").doc(req.params.id);
+    console.log("Updated Item:", updatedItem); // Debugging
+
+    const docRef = db.collection("meeting").doc(id);
     await docRef.update(updatedItem);
-    res.json({ id: docRef.id, ...updatedItem });
+
+    console.log("Document updated successfully"); // Debugging
+    return res.json({ id: docRef.id, ...updatedItem });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("Error updating document:", error);
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
@@ -70,21 +94,22 @@ const deleteMeeting = asyncHandler(async (req, res) => {
     if (!req.params.id) return;
     const docRef = db.collection("meeting").doc(req.params.id);
     await docRef.delete();
-    res.json({ message: "Item deleted successfully" });
+    return res.json({ message: "Item deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 
 const generateAgoraToken = asyncHandler(async (req, res) => {
   const userId = 0;
-  const channelName = req.body.channelName;
+  const { channelName, startDate } = req.body;
 
   const agoraAppId = process.env.AGORA_APP_ID || "";
   const agoraAppCertificate = process.env.AGORA_APP_CERTIFICATE || "";
-
-  const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + 86400;
+  const startDateObject = new Date(startDate);
+  const expirationTimeInSeconds =
+    Math.floor(startDateObject.getTime() / 1000) + 86400;
 
   const token = agora.RtcTokenBuilder.buildTokenWithUid(
     agoraAppId,
@@ -95,7 +120,7 @@ const generateAgoraToken = asyncHandler(async (req, res) => {
     expirationTimeInSeconds
   );
 
-  res.json({ token });
+  return res.json({ token });
 });
 
 module.exports = {
